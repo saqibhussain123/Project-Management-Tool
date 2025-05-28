@@ -1,0 +1,2356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskCollab - Project Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        secondary: '#6366F1',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(156, 163, 175, 0.5);
+            border-radius: 20px;
+        }
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .slide-up {
+            animation: slideUp 0.4s ease-out;
+        }
+        /* Task card dragging styles */
+        .task-card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+        .task-column.drag-over {
+            background-color: rgba(99, 102, 241, 0.1);
+        }
+        /* Timeline dots and lines */
+        .timeline-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            z-index: 1;
+        }
+        .timeline-line {
+            position: absolute;
+            width: 2px;
+            top: 12px;
+            bottom: 0;
+            left: 6px;
+            background-color: #E5E7EB;
+        }
+        .dark .timeline-line {
+            background-color: #374151;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-200">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-10 w-64 transform -translate-x-full md:translate-x-0 transition-transform duration-300 bg-white dark:bg-gray-800 border-r dark:border-gray-700">
+            <div class="flex flex-col h-full">
+                <!-- Logo -->
+                <div class="flex items-center justify-between h-16 px-4 border-b dark:border-gray-700">
+                    <div class="flex items-center">
+                        <span class="text-xl font-bold text-primary">TaskCollab</span>
+                    </div>
+                    <button id="close-sidebar" class="md:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- Sidebar Content -->
+                <div class="flex-1 px-4 py-6 space-y-6 overflow-y-auto custom-scrollbar">
+                    <!-- User Profile -->
+                    <div class="flex items-center space-x-3 mb-6">
+                        <img id="sidebar-avatar" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle fill='%235D5CDE' cx='24' cy='24' r='24'/%3E%3Cpath fill='%23FFFFFF' d='M24 12 A8 8 0 0 0 24 28 A8 8 0 0 0 24 12 Z M12 36 L36 36 C36 30 30 26 24 26 C18 26 12 30 12 36 Z'/%3E%3C/svg%3E" alt="User" class="w-10 h-10 rounded-full">
+                        <div>
+                            <p class="font-medium text-sm" id="current-user-name">Alex Morgan</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Product Manager</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Navigation -->
+                    <nav class="space-y-1">
+                        <a href="#" class="flex items-center px-2 py-2 text-sm font-medium rounded-md bg-primary bg-opacity-10 text-primary" id="nav-dashboard">
+                            <i class="fas fa-home w-5 h-5 mr-3"></i>
+                            Dashboard
+                        </a>
+                        <a href="#" class="flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" id="nav-projects">
+                            <i class="fas fa-project-diagram w-5 h-5 mr-3"></i>
+                            Projects
+                        </a>
+                        <a href="#" class="flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" id="nav-tasks">
+                            <i class="fas fa-tasks w-5 h-5 mr-3"></i>
+                            My Tasks
+                        </a>
+                        <a href="#" class="flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" id="nav-team">
+                            <i class="fas fa-users w-5 h-5 mr-3"></i>
+                            Team
+                        </a>
+                        <a href="#" class="flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" id="nav-messages">
+                            <i class="fas fa-comment-alt w-5 h-5 mr-3"></i>
+                            Messages
+                            <span class="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
+                        </a>
+                        <a href="#" class="flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" id="nav-calendar">
+                            <i class="fas fa-calendar w-5 h-5 mr-3"></i>
+                            Calendar
+                        </a>
+                    </nav>
+                    
+                    <!-- Projects List -->
+                    <div>
+                        <h3 class="px-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Recent Projects
+                        </h3>
+                        <div class="mt-2 space-y-1" id="recent-projects-list">
+                            <!-- Projects will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Team Members -->
+                    <div>
+                        <h3 class="px-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Team Members
+                        </h3>
+                        <div class="mt-2 space-y-2" id="team-members-list">
+                            <!-- Team members will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sidebar Footer -->
+                <div class="p-4 border-t dark:border-gray-700">
+                    <button id="theme-toggle" class="flex items-center justify-center w-full px-4 py-2 text-sm font-medium rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                        <i id="theme-icon" class="fas fa-moon mr-2"></i>
+                        <span id="theme-text">Dark Mode</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 md:ml-64">
+            <!-- Top Navigation -->
+            <header class="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
+                <div class="flex items-center justify-between h-16 px-4">
+                    <div class="flex items-center">
+                        <button id="toggle-sidebar" class="md:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mr-4">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <h1 class="text-lg font-semibold" id="page-title">Dashboard</h1>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <div class="relative">
+                            <input type="text" placeholder="Search..." class="w-40 md:w-64 pl-8 pr-4 py-2 text-sm rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary">
+                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                        
+                        <!-- Create Button -->
+                        <div class="relative">
+                            <button id="create-button" class="flex items-center justify-center h-8 w-8 rounded-full bg-primary text-white hover:bg-opacity-90 transition-colors">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            
+                            <!-- Create Dropdown -->
+                            <div id="create-dropdown" class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 hidden fade-in">
+                                <button class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" id="create-project-btn">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-project-diagram mr-3 text-gray-500 dark:text-gray-400"></i>
+                                        <span>New Project</span>
+                                    </div>
+                                </button>
+                                <button class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" id="create-task-btn">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-tasks mr-3 text-gray-500 dark:text-gray-400"></i>
+                                        <span>New Task</span>
+                                    </div>
+                                </button>
+                                <button class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-comment-alt mr-3 text-gray-500 dark:text-gray-400"></i>
+                                        <span>New Message</span>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Notifications -->
+                        <div class="relative">
+                            <button id="notifications-button" class="relative text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                                <i class="fas fa-bell"></i>
+                                <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">3</span>
+                            </button>
+                            
+                            <!-- Notifications Dropdown -->
+                            <div id="notifications-dropdown" class="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 hidden fade-in z-20">
+                                <div class="p-4 border-b dark:border-gray-700">
+                                    <h3 class="font-bold">Notifications</h3>
+                                </div>
+                                <div class="max-h-80 overflow-y-auto custom-scrollbar">
+                                    <a href="#" class="block p-4 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                        <div class="flex items-start">
+                                            <img src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle fill='%235D5CDE' cx='24' cy='24' r='24'/%3E%3Cpath fill='%23FFFFFF' d='M24 12 A8 8 0 0 0 24 28 A8 8 0 0 0 24 12 Z M12 36 L36 36 C36 30 30 26 24 26 C18 26 12 30 12 36 Z'/%3E%3C/svg%3E" alt="Avatar" class="w-10 h-10 rounded-full mr-4">
+                                            <div>
+                                                <p><span class="font-semibold">Sarah Chen</span> assigned you a new task</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">2 minutes ago</p>
+                                            </div>
+                                        </div>
+                                    </a>
+                                    <a href="#" class="block p-4 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                        <div class="flex items-start">
+                                            <img src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle fill='%235D5CDE' cx='24' cy='24' r='24'/%3E%3Cpath fill='%23FFFFFF' d='M18 22 A6 6 0 0 0 30 22 A6 6 0 0 0 18 22 Z M36 36 L12 36 C12 30 18 26 24 26 C30 26 36 30 36 36 Z'/%3E%3C/svg%3E" alt="Avatar" class="w-10 h-10 rounded-full mr-4">
+                                            <div>
+                                                <p><span class="font-semibold">David Kim</span> commented on your task</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">1 hour ago</p>
+                                            </div>
+                                        </div>
+                                    </a>
+                                    <a href="#" class="block p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                        <div class="flex items-start">
+                                            <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-4">
+                                                <i class="fas fa-check text-blue-500 dark:text-blue-300"></i>
+                                            </div>
+                                            <div>
+                                                <p>The "Website Redesign" project has been completed</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">3 hours ago</p>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- User Menu -->
+                        <div class="relative">
+                            <button id="user-menu-button" class="flex items-center">
+                                <img id="nav-avatar" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle fill='%235D5CDE' cx='24' cy='24' r='24'/%3E%3Cpath fill='%23FFFFFF' d='M24 12 A8 8 0 0 0 24 28 A8 8 0 0 0 24 12 Z M12 36 L36 36 C36 30 30 26 24 26 C18 26 12 30 12 36 Z'/%3E%3C/svg%3E" alt="User" class="w-8 h-8 rounded-full">
+                            </button>
+                            
+                            <!-- User Menu Dropdown -->
+                            <div id="user-menu-dropdown" class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 hidden fade-in z-20">
+                                <a href="#" class="block px-4 py-2 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" id="profile-link">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-user mr-3 text-gray-500 dark:text-gray-400"></i>
+                                        <span>Profile</span>
+                                    </div>
+                                </a>
+                                <a href="#" class="block px-4 py-2 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-cog mr-3 text-gray-500 dark:text-gray-400"></i>
+                                        <span>Settings</span>
+                                    </div>
+                                </a>
+                                <a href="#" class="block px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-sign-out-alt mr-3 text-gray-500 dark:text-gray-400"></i>
+                                        <span>Logout</span>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Page Content -->
+            <main id="main-content" class="p-4 md:p-6 overflow-y-auto h-[calc(100vh-4rem)] custom-scrollbar">
+                <!-- Content will be loaded dynamically here -->
+            </main>
+        </div>
+    </div>
+    
+    <!-- Create Project Modal -->
+    <div id="create-project-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30 hidden fade-in">
+        <div class="bg-white dark:bg-gray-800 rounded-lg max-w-lg w-full mx-4 slide-up">
+            <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
+                <h3 class="text-lg font-semibold">Create New Project</h3>
+                <button class="close-modal text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-4">
+                <form id="create-project-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Project Name</label>
+                        <input type="text" id="project-name" class="w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base" placeholder="Enter project name" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Description</label>
+                        <textarea id="project-description" class="w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base" rows="3" placeholder="Enter project description"></textarea>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Start Date</label>
+                            <input type="date" id="project-start-date" class="w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Due Date</label>
+                            <input type="date" id="project-due-date" class="w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Team Members</label>
+                        <div class="relative">
+                            <select id="project-members" class="w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base" multiple>
+                                <!-- Team members will be added here -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Project Image</label>
+                        <div class="flex items-center justify-center border-2 border-dashed dark:border-gray-700 rounded-md p-4">
+                            <div class="space-y-1 text-center">
+                                <i class="fas fa-image text-gray-400 text-3xl"></i>
+                                <div class="text-sm text-gray-600 dark:text-gray-400">
+                                    <label for="project-image" class="cursor-pointer text-primary hover:text-primary-dark">
+                                        Upload an image
+                                    </label>
+                                    <input id="project-image" type="file" class="hidden" accept="image/*">
+                                    <p class="mt-1">or drag and drop</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="project-image-preview" class="mt-2 hidden">
+                            <div class="relative">
+                                <img id="preview-image" src="" alt="Preview" class="w-full h-40 object-cover rounded-md">
+                                <button id="remove-image" class="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full w-8 h-8 flex items-center justify-center">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" class="close-modal px-4 py-2 border dark:border-gray-700 rounded-md">
+                            Cancel
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">
+                            Create Project
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Task Modal -->
+    <div id="create-task-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30 hidden fade-in">
+        <div class="bg-white dark:bg-gray-800 rounded-lg max-w-lg w-full mx-4 slide-up">
+            <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
+                <h3 class="text-lg font-semibold">Create New Task</h3>
+                <button class="close-modal text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-4">
+                <form id="create-task-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Task Name</label>
+                        <input type="text" id="task-name" class="w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base" placeholder="Enter task name" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Description</label>
+                        <textarea id="task-description" class="w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base" rows="3" placeholder="Enter task description"></textarea>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Project</label>
+                            <select id="task-project" class="w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base">
+                                <!-- Projects will be added here -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Status</label>
+                            <select id="task-status" class="w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base">
+                                <option value="to-do">To Do</option>
+                                <option value="in-progress">In Progress</option>
+                                <option value="review">Review</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Due Date</label>
+                            <input type="date" id="task-due-date" class="w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Priority</label>
+                            <select id="task-priority" class="w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base">
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Assigned To</label>
+                        <select id="task-assignee" class="w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base">
+                            <!-- Team members will be added here -->
+                        </select>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" class="close-modal px-4 py-2 border dark:border-gray-700 rounded-md">
+                            Cancel
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">
+                            Create Task
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Detail Modal -->
+    <div id="task-detail-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30 hidden fade-in">
+        <div class="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full mx-4 slide-up max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
+                <h3 class="text-lg font-semibold" id="task-detail-title">Task Title</h3>
+                <button class="close-modal text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar">
+                <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Task Details -->
+                    <div class="md:col-span-2 space-y-4">
+                        <div id="task-detail-description" class="text-gray-600 dark:text-gray-300">
+                            Task description will be displayed here.
+                        </div>
+                        
+                        <!-- Task Attachments -->
+                        <div id="task-attachments-container" class="border-t dark:border-gray-700 pt-4 mt-4">
+                            <h4 class="font-medium mb-2">Attachments</h4>
+                            <div id="task-attachments" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                <!-- Attachments will be added here -->
+                            </div>
+                            <div class="mt-2">
+                                <label for="task-attachment" class="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 text-primary">
+                                    <i class="fas fa-paperclip mr-2"></i>
+                                    Add Attachment
+                                    <input id="task-attachment" type="file" class="hidden" accept="image/*">
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Task Comments -->
+                        <div class="border-t dark:border-gray-700 pt-4 mt-4">
+                            <h4 class="font-medium mb-2">Comments</h4>
+                            <div id="task-comments" class="space-y-4">
+                                <!-- Comments will be added here -->
+                            </div>
+                            <div class="mt-4 flex">
+                                <img src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle fill='%235D5CDE' cx='24' cy='24' r='24'/%3E%3Cpath fill='%23FFFFFF' d='M24 12 A8 8 0 0 0 24 28 A8 8 0 0 0 24 12 Z M12 36 L36 36 C36 30 30 26 24 26 C18 26 12 30 12 36 Z'/%3E%3C/svg%3E" alt="User" class="w-8 h-8 rounded-full mr-2">
+                                <div class="flex-1 relative">
+                                    <input type="text" id="comment-input" placeholder="Add a comment..." class="w-full py-2 px-3 bg-gray-100 dark:bg-gray-700 rounded-full text-base focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <button id="submit-comment" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-primary">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Task Sidebar -->
+                    <div class="border-t md:border-t-0 md:border-l dark:border-gray-700 md:pl-6 pt-4 md:pt-0">
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="text-sm text-gray-500 dark:text-gray-400">Status</h4>
+                                <select id="task-detail-status" class="mt-1 w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base">
+                                    <option value="to-do">To Do</option>
+                                    <option value="in-progress">In Progress</option>
+                                    <option value="review">Review</option>
+                                    <option value="completed">Completed</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <h4 class="text-sm text-gray-500 dark:text-gray-400">Assignee</h4>
+                                <div class="mt-1 flex items-center">
+                                    <img id="task-detail-assignee-avatar" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle fill='%235D5CDE' cx='24' cy='24' r='24'/%3E%3Cpath fill='%23FFFFFF' d='M24 12 A8 8 0 0 0 24 28 A8 8 0 0 0 24 12 Z M12 36 L36 36 C36 30 30 26 24 26 C18 26 12 30 12 36 Z'/%3E%3C/svg%3E" alt="Assignee" class="w-8 h-8 rounded-full mr-2">
+                                    <select id="task-detail-assignee" class="flex-1 px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base">
+                                        <!-- Team members will be added here -->
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="text-sm text-gray-500 dark:text-gray-400">Due Date</h4>
+                                <input type="date" id="task-detail-due-date" class="mt-1 w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base">
+                            </div>
+                            
+                            <div>
+                                <h4 class="text-sm text-gray-500 dark:text-gray-400">Priority</h4>
+                                <select id="task-detail-priority" class="mt-1 w-full px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-base">
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <h4 class="text-sm text-gray-500 dark:text-gray-400">Project</h4>
+                                <div id="task-detail-project" class="mt-1 px-3 py-2 border dark:border-gray-700 rounded-md bg-white dark:bg-gray-800">
+                                    Website Redesign
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="text-sm text-gray-500 dark:text-gray-400">Created By</h4>
+                                <div class="mt-1 flex items-center">
+                                    <img id="task-detail-creator-avatar" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle fill='%235D5CDE' cx='24' cy='24' r='24'/%3E%3Cpath fill='%23FFFFFF' d='M24 12 A8 8 0 0 0 24 28 A8 8 0 0 0 24 12 Z M12 36 L36 36 C36 30 30 26 24 26 C18 26 12 30 12 36 Z'/%3E%3C/svg%3E" alt="Creator" class="w-6 h-6 rounded-full mr-2">
+                                    <span id="task-detail-creator">Alex Morgan</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="text-sm text-gray-500 dark:text-gray-400">Created At</h4>
+                                <div id="task-detail-created-at" class="mt-1">
+                                    June 15, 2023
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock Database
+        const mockUsers = [
+            {
+                id: 1,
+                name: "Alex Morgan",
+                email: "alex@example.com",
+                avatar: "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle fill='%235D5CDE' cx='24' cy='24' r='24'/%3E%3Cpath fill='%23FFFFFF' d='M24 12 A8 8 0 0 0 24 28 A8 8 0 0 0 24 12 Z M12 36 L36 36 C36 30 30 26 24 26 C18 26 12 30 12 36 Z'/%3E%3C/svg%3E",
+                role: "Product Manager",
+                isCurrentUser: true
+            },
+            {
+                id: 2,
+                name: "Sarah Chen",
+                email: "sarah@example.com",
+                avatar: "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle fill='%235D5CDE' cx='24' cy='24' r='24'/%3E%3Cpath fill='%23FFFFFF' d='M24 12 A6 6 0 0 0 24 24 A6 6 0 0 0 24 12 Z M12 36 L36 36 C36 30 18 30 18 30 C18 30 12 32 12 36 Z'/%3E%3C/svg%3E",
+                role: "UI/UX Designer"
+            },
+            {
+                id: 3,
+                name: "David Kim",
+                email: "david@example.com",
+                avatar: "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle fill='%235D5CDE' cx='24' cy='24' r='24'/%3E%3Cpath fill='%23FFFFFF' d='M18 22 A6 6 0 0 0 30 22 A6 6 0 0 0 18 22 Z M36 36 L12 36 C12 30 18 26 24 26 C30 26 36 30 36 36 Z'/%3E%3C/svg%3E",
+                role: "Frontend Developer"
+            },
+            {
+                id: 4,
+                name: "Emily Patel",
+                email: "emily@example.com",
+                avatar: "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle fill='%235D5CDE' cx='24' cy='24' r='24'/%3E%3Cpath fill='%23FFFFFF' d='M32 20 A8 8 0 0 0 16 20 A8 8 0 0 0 32 20 Z M12 32 L36 32 C36 32 34 22 24 22 C14 22 12 32 12 32 Z'/%3E%3C/svg%3E",
+                role: "Backend Developer"
+            },
+            {
+                id: 5,
+                name: "Michael Scott",
+                email: "michael@example.com",
+                avatar: "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle fill='%235D5CDE' cx='24' cy='24' r='24'/%3E%3Cpath fill='%23FFFFFF' d='M20 20 A4 4 0 0 0 28 20 A4 4 0 0 0 20 20 Z M12 36 L36 36 C36 28 16 28 16 28 C16 28 12 32 12 36 Z'/%3E%3C/svg%3E",
+                role: "Marketing Manager"
+            }
+        ];
+
+        const mockProjects = [
+            {
+                id: 1,
+                name: "Website Redesign",
+                description: "Completely overhaul the company website with a modern design and improved user experience.",
+                image: "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'%3E%3Crect fill='%235D5CDE' width='600' height='400'/%3E%3Crect fill='%23FFFFFF' x='150' y='100' width='300' height='200' rx='10' ry='10'/%3E%3Crect fill='%23333333' x='170' y='120' width='260' height='140' rx='5' ry='5'/%3E%3Crect fill='%23FFFFFF' x='190' y='140' width='100' height='10'/%3E%3Crect fill='%23FFFFFF' x='190' y='160' width='220' height='10'/%3E%3Crect fill='%23FFFFFF' x='190' y='180' width='180' height='10'/%3E%3Crect fill='%23FFFFFF' x='190' y='210' width='60' height='30' rx='5' ry='5'/%3E%3C/svg%3E",
+                startDate: "2023-06-01",
+                dueDate: "2023-07-15",
+                status: "in-progress",
+                progress: 65,
+                members: [1, 2, 3, 4],
+                createdBy: 1,
+                createdAt: "2023-05-28"
+            },
+            {
+                id: 2,
+                name: "Mobile App Development",
+                description: "Create a native mobile application for iOS and Android platforms to complement our web service.",
+                image: "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'%3E%3Crect fill='%235D5CDE' width='600' height='400'/%3E%3Crect fill='%23333333' x='225' y='100' width='150' height='250' rx='20' ry='20'/%3E%3Crect fill='%23FFFFFF' x='235' y='120' width='130' height='200'/%3E%3Ccircle fill='%23333333' cx='300' cy='340' r='10'/%3E%3C/svg%3E",
+                startDate: "2023-07-01",
+                dueDate: "2023-10-31",
+                status: "planning",
+                progress: 10,
+                members: [1, 3, 4],
+                createdBy: 1,
+                createdAt: "2023-06-15"
+            },
+            {
+                id: 3,
+                name: "Marketing Campaign",
+                description: "Plan and execute a comprehensive marketing campaign for the Q3 product launch.",
+                image: "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'%3E%3Crect fill='%235D5CDE' width='600' height='400'/%3E%3Cpath fill='%23FFFFFF' d='M150 300 L200 200 L300 250 L400 150 L450 300 Z'/%3E%3Ccircle fill='%23FFFFFF' cx='200' cy='200' r='5'/%3E%3Ccircle fill='%23FFFFFF' cx='300' cy='250' r='5'/%3E%3Ccircle fill='%23FFFFFF' cx='400' cy='150' r='5'/%3E%3Cpath fill='none' stroke='%23FFFFFF' stroke-width='2' d='M100 330 L500 330'/%3E%3Cpath fill='none' stroke='%23FFFFFF' stroke-width='2' d='M150 350 L150 100'/%3E%3C/svg%3E",
+                startDate: "2023-07-15",
+                dueDate: "2023-09-30",
+                status: "planning",
+                progress: 5,
+                members: [1, 2, 5],
+                createdBy: 5,
+                createdAt: "2023-06-20"
+            }
+        ];
+
+        const mockTasks = [
+            {
+                id: 1,
+                name: "Create wireframes for homepage",
+                description: "Design comprehensive wireframes for the new homepage layout, including mobile and desktop versions.",
+                projectId: 1,
+                status: "completed",
+                priority: "high",
+                dueDate: "2023-06-10",
+                assigneeId: 2,
+                createdBy: 1,
+                createdAt: "2023-06-01",
+                attachments: [
+                    {
+                        id: 1,
+                        name: "homepage-wireframe.png",
+                        type: "image",
+                        url: "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'%3E%3Crect fill='%235D5CDE' width='600' height='400'/%3E%3Crect fill='%23FFFFFF' x='100' y='50' width='400' height='300'/%3E%3Crect fill='%23E5E7EB' x='150' y='100' width='300' height='40'/%3E%3Crect fill='%23E5E7EB' x='150' y='160' width='300' height='120'/%3E%3Crect fill='%23E5E7EB' x='150' y='300' width='140' height='30'/%3E%3C/svg%3E"
+                    }
+                ],
+                comments: [
+                    {
+                        id: 1,
+                        userId: 1,
+                        content: "The wireframes look great! Let's move forward with these designs.",
+                        timestamp: "2023-06-08 14:30"
+                    },
+                    {
+                        id: 2,
+                        userId: 2,
+                        content: "Thanks! I've incorporated all the feedback from our last meeting.",
+                        timestamp: "2023-06-08 15:45"
+                    }
+                ]
+            },
+            {
+                id: 2,
+                name: "Develop homepage frontend",
+                description: "Implement the homepage design using HTML, CSS, and JavaScript according to the approved wireframes.",
+                projectId: 1,
+                status: "in-progress",
+                priority: "medium",
+                dueDate: "2023-06-20",
+                assigneeId: 3,
+                createdBy: 1,
+                createdAt: "2023-06-11",
+                attachments: [],
+                comments: [
+                    {
+                        id: 3,
+                        userId: 3,
+                        content: "I've started implementing the responsive layout. Should be done with the base structure by tomorrow.",
+                        timestamp: "2023-06-15 10:22"
+                    }
+                ]
+            },
+            {
+                id: 3,
+                name: "Set up API endpoints",
+                description: "Create the necessary backend API endpoints for the website's dynamic content.",
+                projectId: 1,
+                status: "to-do",
+                priority: "high",
+                dueDate: "2023-06-25",
+                assigneeId: 4,
+                createdBy: 1,
+                createdAt: "2023-06-12",
+                attachments: [],
+                comments: []
+            },
+            {
+                id: 4,
+                name: "Research competitor apps",
+                description: "Analyze similar mobile applications in the market to identify key features and opportunities for differentiation.",
+                projectId: 2,
+                status: "in-progress",
+                priority: "medium",
+                dueDate: "2023-07-10",
+                assigneeId: 1,
+                createdBy: 1,
+                createdAt: "2023-06-16",
+                attachments: [],
+                comments: [
+                    {
+                        id: 4,
+                        userId: 1,
+                        content: "I've compiled a list of the top 5 competitor apps. Will share my analysis by the end of the week.",
+                        timestamp: "2023-06-18 09:15"
+                    }
+                ]
+            },
+            {
+                id: 5,
+                name: "Create social media content calendar",
+                description: "Develop a content calendar for social media posts related to the product launch.",
+                projectId: 3,
+                status: "to-do",
+                priority: "medium",
+                dueDate: "2023-07-30",
+                assigneeId: 5,
+                createdBy: 5,
+                createdAt: "2023-06-21",
+                attachments: [],
+                comments: []
+            }
+        ];
+
+        // Current User
+        const currentUserId = 1;
+
+        // DOM Elements
+        const mainContent = document.getElementById('main-content');
+        const pageTitle = document.getElementById('page-title');
+        const navDashboard = document.getElementById('nav-dashboard');
+        const navProjects = document.getElementById('nav-projects');
+        const navTasks = document.getElementById('nav-tasks');
+        const navTeam = document.getElementById('nav-team');
+        const navMessages = document.getElementById('nav-messages');
+        const navCalendar = document.getElementById('nav-calendar');
+        const recentProjectsList = document.getElementById('recent-projects-list');
+        const teamMembersList = document.getElementById('team-members-list');
+        const sidebarAvatar = document.getElementById('sidebar-avatar');
+        const navAvatar = document.getElementById('nav-avatar');
+        const currentUserName = document.getElementById('current-user-name');
+        const toggleSidebar = document.getElementById('toggle-sidebar');
+        const closeSidebar = document.getElementById('close-sidebar');
+        const sidebar = document.getElementById('sidebar');
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+        const themeText = document.getElementById('theme-text');
+        const createButton = document.getElementById('create-button');
+        const createDropdown = document.getElementById('create-dropdown');
+        const createProjectBtn = document.getElementById('create-project-btn');
+        const createTaskBtn = document.getElementById('create-task-btn');
+        const createProjectModal = document.getElementById('create-project-modal');
+        const createTaskModal = document.getElementById('create-task-modal');
+        const taskDetailModal = document.getElementById('task-detail-modal');
+        const closeModalButtons = document.querySelectorAll('.close-modal');
+        const notificationsButton = document.getElementById('notifications-button');
+        const notificationsDropdown = document.getElementById('notifications-dropdown');
+        const userMenuButton = document.getElementById('user-menu-button');
+        const userMenuDropdown = document.getElementById('user-menu-dropdown');
+        const projectImage = document.getElementById('project-image');
+        const projectImagePreview = document.getElementById('project-image-preview');
+        const previewImage = document.getElementById('preview-image');
+        const removeImage = document.getElementById('remove-image');
+        const createProjectForm = document.getElementById('create-project-form');
+        const createTaskForm = document.getElementById('create-task-form');
+        const projectMembers = document.getElementById('project-members');
+        const taskProject = document.getElementById('task-project');
+        const taskAssignee = document.getElementById('task-assignee');
+        const taskDetailAssignee = document.getElementById('task-detail-assignee');
+        const commentInput = document.getElementById('comment-input');
+        const submitComment = document.getElementById('submit-comment');
+        const taskAttachment = document.getElementById('task-attachment');
+
+        // Initialize theme
+        function initTheme() {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+                themeText.textContent = 'Light Mode';
+            }
+
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+                if (event.matches) {
+                    document.documentElement.classList.add('dark');
+                    themeIcon.classList.remove('fa-moon');
+                    themeIcon.classList.add('fa-sun');
+                    themeText.textContent = 'Light Mode';
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    themeIcon.classList.add('fa-moon');
+                    themeIcon.classList.remove('fa-sun');
+                    themeText.textContent = 'Dark Mode';
+                }
+            });
+        }
+
+        // Toggle theme
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            
+            if (document.documentElement.classList.contains('dark')) {
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+                themeText.textContent = 'Light Mode';
+            } else {
+                themeIcon.classList.add('fa-moon');
+                themeIcon.classList.remove('fa-sun');
+                themeText.textContent = 'Dark Mode';
+            }
+        });
+
+        // Toggle sidebar
+        toggleSidebar.addEventListener('click', () => {
+            sidebar.classList.toggle('-translate-x-full');
+        });
+
+        closeSidebar.addEventListener('click', () => {
+            sidebar.classList.add('-translate-x-full');
+        });
+
+        // Toggle create dropdown
+        createButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            createDropdown.classList.toggle('hidden');
+            notificationsDropdown.classList.add('hidden');
+            userMenuDropdown.classList.add('hidden');
+        });
+
+        // Toggle notifications dropdown
+        notificationsButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            notificationsDropdown.classList.toggle('hidden');
+            createDropdown.classList.add('hidden');
+            userMenuDropdown.classList.add('hidden');
+        });
+
+        // Toggle user menu dropdown
+        userMenuButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            userMenuDropdown.classList.toggle('hidden');
+            createDropdown.classList.add('hidden');
+            notificationsDropdown.classList.add('hidden');
+        });
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', () => {
+            createDropdown.classList.add('hidden');
+            notificationsDropdown.classList.add('hidden');
+            userMenuDropdown.classList.add('hidden');
+        });
+
+        // Open create project modal
+        createProjectBtn.addEventListener('click', () => {
+            createProjectModal.classList.remove('hidden');
+            createDropdown.classList.add('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // Populate team members select
+            projectMembers.innerHTML = '';
+            mockUsers.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = user.name;
+                option.selected = user.id === currentUserId;
+                projectMembers.appendChild(option);
+            });
+        });
+
+        // Open create task modal
+        createTaskBtn.addEventListener('click', () => {
+            createTaskModal.classList.remove('hidden');
+            createDropdown.classList.add('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // Populate projects select
+            taskProject.innerHTML = '';
+            mockProjects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.id;
+                option.textContent = project.name;
+                taskProject.appendChild(option);
+            });
+            
+            // Populate assignees select
+            taskAssignee.innerHTML = '';
+            mockUsers.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = user.name;
+                option.selected = user.id === currentUserId;
+                taskAssignee.appendChild(option);
+            });
+        });
+
+        // Close modals
+        closeModalButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                createProjectModal.classList.add('hidden');
+                createTaskModal.classList.add('hidden');
+                taskDetailModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            });
+        });
+
+        // Close modal when clicking outside
+        [createProjectModal, createTaskModal, taskDetailModal].forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
+
+        // Handle project image upload
+        projectImage.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    previewImage.src = event.target.result;
+                    projectImagePreview.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Remove project image
+        removeImage.addEventListener('click', () => {
+            projectImagePreview.classList.add('hidden');
+            previewImage.src = '';
+            projectImage.value = '';
+        });
+
+        // Handle task attachment upload
+        taskAttachment.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    // Add attachment to current task
+                    const currentTaskId = parseInt(taskDetailModal.getAttribute('data-task-id'));
+                    const task = mockTasks.find(t => t.id === currentTaskId);
+                    
+                    if (task) {
+                        const newAttachment = {
+                            id: Date.now(),
+                            name: file.name,
+                            type: 'image',
+                            url: event.target.result
+                        };
+                        
+                        task.attachments.push(newAttachment);
+                        renderTaskAttachments(task);
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Submit new comment
+        submitComment.addEventListener('click', () => {
+            const commentText = commentInput.value.trim();
+            if (commentText) {
+                const currentTaskId = parseInt(taskDetailModal.getAttribute('data-task-id'));
+                const task = mockTasks.find(t => t.id === currentTaskId);
+                
+                if (task) {
+                    const newComment = {
+                        id: Date.now(),
+                        userId: currentUserId,
+                        content: commentText,
+                        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16)
+                    };
+                    
+                    task.comments.push(newComment);
+                    commentInput.value = '';
+                    renderTaskComments(task);
+                }
+            }
+        });
+
+        commentInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitComment.click();
+            }
+        });
+
+        // Create new project
+        createProjectForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const projectName = document.getElementById('project-name').value;
+            const projectDescription = document.getElementById('project-description').value;
+            const projectStartDate = document.getElementById('project-start-date').value;
+            const projectDueDate = document.getElementById('project-due-date').value;
+            const selectedMembers = Array.from(projectMembers.selectedOptions).map(option => parseInt(option.value));
+            
+            const newProject = {
+                id: mockProjects.length + 1,
+                name: projectName,
+                description: projectDescription,
+                image: previewImage.src || "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'%3E%3Crect fill='%235D5CDE' width='600' height='400'/%3E%3Cpath fill='%23FFFFFF' d='M200 150 L400 150 L400 250 L200 250 Z'/%3E%3Cpath fill='%235D5CDE' d='M225 175 L375 175 L375 225 L225 225 Z'/%3E%3C/svg%3E",
+                startDate: projectStartDate,
+                dueDate: projectDueDate,
+                status: "planning",
+                progress: 0,
+                members: selectedMembers,
+                createdBy: currentUserId,
+                createdAt: new Date().toISOString().split('T')[0]
+            };
+            
+            mockProjects.push(newProject);
+            createProjectModal.classList.add('hidden');
+            document.body.style.overflow = '';
+            
+            if (mainContent.getAttribute('data-view') === 'projects') {
+                renderProjects();
+            } else {
+                renderDashboard();
+            }
+            
+            updateRecentProjects();
+        });
+
+        // Create new task
+        createTaskForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const taskName = document.getElementById('task-name').value;
+            const taskDescription = document.getElementById('task-description').value;
+            const taskProjectId = parseInt(document.getElementById('task-project').value);
+            const taskStatus = document.getElementById('task-status').value;
+            const taskDueDate = document.getElementById('task-due-date').value;
+            const taskPriority = document.getElementById('task-priority').value;
+            const taskAssigneeId = parseInt(document.getElementById('task-assignee').value);
+            
+            const newTask = {
+                id: mockTasks.length + 1,
+                name: taskName,
+                description: taskDescription,
+                projectId: taskProjectId,
+                status: taskStatus,
+                priority: taskPriority,
+                dueDate: taskDueDate,
+                assigneeId: taskAssigneeId,
+                createdBy: currentUserId,
+                createdAt: new Date().toISOString().split('T')[0],
+                attachments: [],
+                comments: []
+            };
+            
+            mockTasks.push(newTask);
+            createTaskModal.classList.add('hidden');
+            document.body.style.overflow = '';
+            
+            if (mainContent.getAttribute('data-view') === 'project-board') {
+                renderProjectBoard(mockProjects.find(p => p.id === taskProjectId));
+            } else if (mainContent.getAttribute('data-view') === 'my-tasks') {
+                renderMyTasks();
+            } else {
+                renderDashboard();
+            }
+        });
+
+        // Navigation event listeners
+        navDashboard.addEventListener('click', (e) => {
+            e.preventDefault();
+            setActiveNavItem(navDashboard);
+            renderDashboard();
+        });
+
+        navProjects.addEventListener('click', (e) => {
+            e.preventDefault();
+            setActiveNavItem(navProjects);
+            renderProjects();
+        });
+
+        navTasks.addEventListener('click', (e) => {
+            e.preventDefault();
+            setActiveNavItem(navTasks);
+            renderMyTasks();
+        });
+
+        navTeam.addEventListener('click', (e) => {
+            e.preventDefault();
+            setActiveNavItem(navTeam);
+            renderTeam();
+        });
+
+        // Helper function to get user by ID
+        function getUserById(id) {
+            return mockUsers.find(user => user.id === id);
+        }
+
+        // Helper function to get project by ID
+        function getProjectById(id) {
+            return mockProjects.find(project => project.id === id);
+        }
+
+        // Set active navigation item
+        function setActiveNavItem(activeItem) {
+            const navItems = [navDashboard, navProjects, navTasks, navTeam, navMessages, navCalendar];
+            
+            navItems.forEach(item => {
+                item.classList.remove('bg-primary', 'bg-opacity-10', 'text-primary');
+                item.classList.add('text-gray-600', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
+            });
+            
+            activeItem.classList.remove('text-gray-600', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
+            activeItem.classList.add('bg-primary', 'bg-opacity-10', 'text-primary');
+        }
+
+        // Update recent projects list
+        function updateRecentProjects() {
+            recentProjectsList.innerHTML = '';
+            
+            // Sort projects by most recent and limit to 3
+            const recentProjects = [...mockProjects].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 3);
+            
+            recentProjects.forEach(project => {
+                const projectItem = document.createElement('a');
+                projectItem.href = '#';
+                projectItem.className = 'flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors';
+                projectItem.innerHTML = `
+                    <span class="w-2 h-2 rounded-full ${getStatusColor(project.status)} mr-3"></span>
+                    ${project.name}
+                `;
+                
+                projectItem.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    renderProjectBoard(project);
+                });
+                
+                recentProjectsList.appendChild(projectItem);
+            });
+        }
+
+        // Update team members list
+        function updateTeamMembersList() {
+            teamMembersList.innerHTML = '';
+            
+            mockUsers.filter(user => !user.isCurrentUser).forEach(user => {
+                const memberItem = document.createElement('a');
+                memberItem.href = '#';
+                memberItem.className = 'flex items-center px-2 py-1.5 text-sm rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors';
+                memberItem.innerHTML = `
+                    <img src="${user.avatar}" alt="${user.name}" class="w-6 h-6 rounded-full mr-2">
+                    ${user.name}
+                `;
+                
+                memberItem.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    // You could add functionality to view team member profile
+                });
+                
+                teamMembersList.appendChild(memberItem);
+            });
+        }
+
+        // Get color class based on status
+        function getStatusColor(status) {
+            switch (status) {
+                case 'completed':
+                    return 'bg-green-500';
+                case 'in-progress':
+                    return 'bg-blue-500';
+                case 'review':
+                    return 'bg-yellow-500';
+                case 'to-do':
+                    return 'bg-gray-500';
+                case 'planning':
+                    return 'bg-purple-500';
+                default:
+                    return 'bg-gray-500';
+            }
+        }
+
+        // Get color class based on priority
+        function getPriorityColor(priority) {
+            switch (priority) {
+                case 'high':
+                    return 'bg-red-500';
+                case 'medium':
+                    return 'bg-yellow-500';
+                case 'low':
+                    return 'bg-green-500';
+                default:
+                    return 'bg-gray-500';
+            }
+        }
+
+        // Format date to readable string
+        function formatDate(dateString) {
+            if (!dateString) return 'No date';
+            
+            const date = new Date(dateString);
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            return date.toLocaleDateString('en-US', options);
+        }
+
+        // Check if a date is overdue
+        function isOverdue(dateString) {
+            if (!dateString) return false;
+            
+            const dueDate = new Date(dateString);
+            const today = new Date();
+            return dueDate < today && dueDate.toDateString() !== today.toDateString();
+        }
+
+        // Render dashboard view
+        function renderDashboard() {
+            pageTitle.textContent = 'Dashboard';
+            mainContent.setAttribute('data-view', 'dashboard');
+            
+            // Sort tasks by due date
+            const upcomingTasks = [...mockTasks]
+                .filter(task => task.assigneeId === currentUserId && task.status !== 'completed')
+                .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+                .slice(0, 5);
+                
+            // Count tasks by status
+            const taskStatusCounts = {
+                'to-do': mockTasks.filter(task => task.status === 'to-do' && task.assigneeId === currentUserId).length,
+                'in-progress': mockTasks.filter(task => task.status === 'in-progress' && task.assigneeId === currentUserId).length,
+                'review': mockTasks.filter(task => task.status === 'review' && task.assigneeId === currentUserId).length,
+                'completed': mockTasks.filter(task => task.status === 'completed' && task.assigneeId === currentUserId).length
+            };
+            
+            // Calculate total task count
+            const totalTasks = Object.values(taskStatusCounts).reduce((a, b) => a + b, 0);
+            
+            // Get projects where current user is a member
+            const userProjects = mockProjects.filter(project => project.members.includes(currentUserId));
+            
+            mainContent.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <!-- Task Summary Cards -->
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 rounded-md bg-blue-100 dark:bg-blue-900 p-3">
+                                <i class="fas fa-tasks text-blue-500 dark:text-blue-300"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Tasks</h3>
+                                <p class="text-2xl font-semibold">${totalTasks}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 rounded-md bg-yellow-100 dark:bg-yellow-900 p-3">
+                                <i class="fas fa-spinner text-yellow-500 dark:text-yellow-300"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">In Progress</h3>
+                                <p class="text-2xl font-semibold">${taskStatusCounts['in-progress']}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 rounded-md bg-green-100 dark:bg-green-900 p-3">
+                                <i class="fas fa-check text-green-500 dark:text-green-300"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Completed</h3>
+                                <p class="text-2xl font-semibold">${taskStatusCounts['completed']}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 rounded-md bg-red-100 dark:bg-red-900 p-3">
+                                <i class="fas fa-exclamation-triangle text-red-500 dark:text-red-300"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Overdue</h3>
+                                <p class="text-2xl font-semibold">${mockTasks.filter(task => task.assigneeId === currentUserId && isOverdue(task.dueDate) && task.status !== 'completed').length}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Left Column: Upcoming Tasks -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 overflow-hidden">
+                            <div class="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700">
+                                <h3 class="font-medium">Upcoming Tasks</h3>
+                                <a href="#" class="text-sm text-primary hover:underline" id="view-all-tasks">View All</a>
+                            </div>
+                            <div class="divide-y dark:divide-gray-700">
+                                ${upcomingTasks.length > 0 ? upcomingTasks.map(task => {
+                                    const project = getProjectById(task.projectId);
+                                    const assignee = getUserById(task.assigneeId);
+                                    return `
+                                        <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors cursor-pointer task-item" data-task-id="${task.id}">
+                                            <div class="flex items-start">
+                                                <span class="flex-shrink-0 w-2 h-2 mt-2 rounded-full ${getPriorityColor(task.priority)}"></span>
+                                                <div class="ml-3 flex-1">
+                                                    <div class="flex items-center justify-between">
+                                                        <h4 class="font-medium">${task.name}</h4>
+                                                        <span class="text-xs ${isOverdue(task.dueDate) ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}">${formatDate(task.dueDate)}</span>
+                                                    </div>
+                                                    <div class="flex items-center mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                                        <span class="mr-3">${project.name}</span>
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(task.status)} bg-opacity-10 text-${getStatusColor(task.status).split('-')[1]}-800 dark:text-${getStatusColor(task.status).split('-')[1]}-300">
+                                                            ${task.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('') : `
+                                    <div class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                                        <p>No upcoming tasks</p>
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                        
+                        <!-- Projects Progress -->
+                        <div class="mt-6">
+                            <h3 class="font-medium mb-3">Project Progress</h3>
+                            <div class="grid grid-cols-1 gap-4">
+                                ${userProjects.map(project => {
+                                    // Calculate project progress based on completed tasks
+                                    const projectTasks = mockTasks.filter(task => task.projectId === project.id);
+                                    const completedTasks = projectTasks.filter(task => task.status === 'completed').length;
+                                    const progressPercent = projectTasks.length > 0 ? Math.round((completedTasks / projectTasks.length) * 100) : 0;
+                                    
+                                    return `
+                                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-4 hover:shadow-md transition-shadow cursor-pointer project-card" data-project-id="${project.id}">
+                                            <div class="flex items-center">
+                                                <div class="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                                                    <img src="${project.image}" alt="${project.name}" class="w-full h-full object-cover">
+                                                </div>
+                                                <div class="ml-3 flex-1">
+                                                    <div class="flex items-center justify-between">
+                                                        <h4 class="font-medium">${project.name}</h4>
+                                                        <span class="text-sm text-gray-500 dark:text-gray-400">${progressPercent}%</span>
+                                                    </div>
+                                                    <div class="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                                                        <div class="bg-primary h-2.5 rounded-full" style="width: ${progressPercent}%"></div>
+                                                    </div>
+                                                    <div class="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                                        <span>${projectTasks.length} tasks</span>
+                                                        <span>Due ${formatDate(project.dueDate)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: Team Activity and Calendar -->
+                    <div>
+                        <!-- Team Activity -->
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 overflow-hidden">
+                            <div class="px-4 py-3 border-b dark:border-gray-700">
+                                <h3 class="font-medium">Recent Activity</h3>
+                            </div>
+                            <div class="p-4">
+                                <div class="relative">
+                                    <div class="absolute top-0 bottom-0 left-0 w-0.5 bg-gray-200 dark:bg-gray-700"></div>
+                                    <div class="space-y-6">
+                                        <div class="relative flex items-start">
+                                            <div class="flex-shrink-0">
+                                                <div class="timeline-dot bg-blue-500 absolute -left-1.5"></div>
+                                                <div class="timeline-line"></div>
+                                            </div>
+                                            <div class="ml-6">
+                                                <div class="flex items-center">
+                                                    <img src="${mockUsers[1].avatar}" alt="${mockUsers[1].name}" class="w-8 h-8 rounded-full mr-2">
+                                                    <div>
+                                                        <p class="font-medium text-sm">${mockUsers[1].name}</p>
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400">2 hours ago</p>
+                                                    </div>
+                                                </div>
+                                                <p class="mt-1 text-sm">Completed the wireframes for the homepage redesign.</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="relative flex items-start">
+                                            <div class="flex-shrink-0">
+                                                <div class="timeline-dot bg-green-500 absolute -left-1.5"></div>
+                                                <div class="timeline-line"></div>
+                                            </div>
+                                            <div class="ml-6">
+                                                <div class="flex items-center">
+                                                    <img src="${mockUsers[2].avatar}" alt="${mockUsers[2].name}" class="w-8 h-8 rounded-full mr-2">
+                                                    <div>
+                                                        <p class="font-medium text-sm">${mockUsers[2].name}</p>
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400">5 hours ago</p>
+                                                    </div>
+                                                </div>
+                                                <p class="mt-1 text-sm">Started working on the homepage frontend implementation.</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="relative flex items-start">
+                                            <div class="flex-shrink-0">
+                                                <div class="timeline-dot bg-purple-500 absolute -left-1.5"></div>
+                                            </div>
+                                            <div class="ml-6">
+                                                <div class="flex items-center">
+                                                    <img src="${mockUsers[0].avatar}" alt="${mockUsers[0].name}" class="w-8 h-8 rounded-full mr-2">
+                                                    <div>
+                                                        <p class="font-medium text-sm">${mockUsers[0].name}</p>
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400">1 day ago</p>
+                                                    </div>
+                                                </div>
+                                                <p class="mt-1 text-sm">Created a new project: Mobile App Development.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Calendar Preview -->
+                        <div class="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 overflow-hidden">
+                            <div class="px-4 py-3 border-b dark:border-gray-700">
+                                <h3 class="font-medium">Upcoming Deadlines</h3>
+                            </div>
+                            <div class="p-4">
+                                <div class="space-y-3">
+                                    ${mockTasks
+                                        .filter(task => task.status !== 'completed' && task.dueDate)
+                                        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+                                        .slice(0, 3)
+                                        .map(task => {
+                                            const project = getProjectById(task.projectId);
+                                            return `
+                                                <div class="flex items-start p-2 rounded-md ${isOverdue(task.dueDate) ? 'bg-red-50 dark:bg-red-900 dark:bg-opacity-20' : ''} task-item" data-task-id="${task.id}">
+                                                    <div class="w-10 text-center">
+                                                        <div class="text-xs font-semibold text-gray-500 dark:text-gray-400">${new Date(task.dueDate).toLocaleString('default', { month: 'short' })}</div>
+                                                        <div class="text-lg font-bold ${isOverdue(task.dueDate) ? 'text-red-500' : ''}">${new Date(task.dueDate).getDate()}</div>
+                                                    </div>
+                                                    <div class="ml-3">
+                                                        <h4 class="font-medium text-sm">${task.name}</h4>
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400">${project.name}</p>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('')
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listeners to task items
+            const taskItems = mainContent.querySelectorAll('.task-item');
+            taskItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const taskId = parseInt(item.getAttribute('data-task-id'));
+                    const task = mockTasks.find(t => t.id === taskId);
+                    if (task) {
+                        openTaskDetailModal(task);
+                    }
+                });
+            });
+            
+            // Add event listeners to project cards
+            const projectCards = mainContent.querySelectorAll('.project-card');
+            projectCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    const projectId = parseInt(card.getAttribute('data-project-id'));
+                    const project = mockProjects.find(p => p.id === projectId);
+                    if (project) {
+                        renderProjectBoard(project);
+                    }
+                });
+            });
+            
+            // View all tasks link
+            const viewAllTasksLink = document.getElementById('view-all-tasks');
+            viewAllTasksLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                setActiveNavItem(navTasks);
+                renderMyTasks();
+            });
+        }
+
+        // Render projects view
+        function renderProjects() {
+            pageTitle.textContent = 'Projects';
+            mainContent.setAttribute('data-view', 'projects');
+            
+            mainContent.innerHTML = `
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-semibold">All Projects</h2>
+                    <button id="new-project-btn" class="flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>
+                        New Project
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${mockProjects.map(project => {
+                        // Calculate project progress based on completed tasks
+                        const projectTasks = mockTasks.filter(task => task.projectId === project.id);
+                        const completedTasks = projectTasks.filter(task => task.status === 'completed').length;
+                        const progressPercent = projectTasks.length > 0 ? Math.round((completedTasks / projectTasks.length) * 100) : 0;
+                        
+                        return `
+                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer project-card" data-project-id="${project.id}">
+                                <div class="h-32 bg-gray-200 dark:bg-gray-700">
+                                    <img src="${project.image}" alt="${project.name}" class="w-full h-full object-cover">
+                                </div>
+                                <div class="p-4">
+                                    <h3 class="font-semibold text-lg">${project.name}</h3>
+                                    <p class="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">${project.description}</p>
+                                    
+                                    <div class="mt-4">
+                                        <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
+                                            <span>Progress</span>
+                                            <span>${progressPercent}%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                            <div class="bg-primary h-2 rounded-full" style="width: ${progressPercent}%"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-4 flex items-center justify-between">
+                                        <div class="flex -space-x-2">
+                                            ${project.members.slice(0, 3).map(memberId => {
+                                                const member = getUserById(memberId);
+                                                return `<img src="${member.avatar}" alt="${member.name}" class="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800">`;
+                                            }).join('')}
+                                            ${project.members.length > 3 ? `<div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-800 flex items-center justify-center text-xs font-medium">+${project.members.length - 3}</div>` : ''}
+                                        </div>
+                                        <div class="text-sm text-gray-500 dark:text-gray-400">Due ${formatDate(project.dueDate)}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            
+            // Add event listeners to project cards
+            const projectCards = mainContent.querySelectorAll('.project-card');
+            projectCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    const projectId = parseInt(card.getAttribute('data-project-id'));
+                    const project = mockProjects.find(p => p.id === projectId);
+                    if (project) {
+                        renderProjectBoard(project);
+                    }
+                });
+            });
+            
+            // New project button
+            const newProjectBtn = document.getElementById('new-project-btn');
+            newProjectBtn.addEventListener('click', () => {
+                createProjectModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+                
+                // Populate team members select
+                projectMembers.innerHTML = '';
+                mockUsers.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = user.name;
+                    option.selected = user.id === currentUserId;
+                    projectMembers.appendChild(option);
+                });
+            });
+        }
+
+        // Render project board view
+        function renderProjectBoard(project) {
+            pageTitle.textContent = project.name;
+            mainContent.setAttribute('data-view', 'project-board');
+            mainContent.setAttribute('data-project-id', project.id);
+            
+            // Get tasks for this project
+            const projectTasks = mockTasks.filter(task => task.projectId === project.id);
+            
+            // Group tasks by status
+            const tasksByStatus = {
+                'to-do': projectTasks.filter(task => task.status === 'to-do'),
+                'in-progress': projectTasks.filter(task => task.status === 'in-progress'),
+                'review': projectTasks.filter(task => task.status === 'review'),
+                'completed': projectTasks.filter(task => task.status === 'completed')
+            };
+            
+            // Calculate project progress
+            const completedTasks = projectTasks.filter(task => task.status === 'completed').length;
+            const progressPercent = projectTasks.length > 0 ? Math.round((completedTasks / projectTasks.length) * 100) : 0;
+            
+            mainContent.innerHTML = `
+                <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-6 space-y-4 lg:space-y-0">
+                    <div>
+                        <div class="flex items-center">
+                            <a href="#" class="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary mr-2" id="back-to-projects">
+                                <i class="fas fa-arrow-left"></i>
+                            </a>
+                            <h2 class="text-xl font-semibold">${project.name}</h2>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">${project.description}</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex -space-x-2">
+                            ${project.members.map(memberId => {
+                                const member = getUserById(memberId);
+                                return `
+                                    <div class="relative group">
+                                        <img src="${member.avatar}" alt="${member.name}" class="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800">
+                                        <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap">
+                                            ${member.name}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                            <button class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-800 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                                <i class="fas fa-plus text-xs"></i>
+                            </button>
+                        </div>
+                        <button id="new-task-btn" class="flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>
+                            Add Task
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-4 mb-6">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between">
+                        <div class="mb-4 md:mb-0">
+                            <div class="flex items-center">
+                                <div>
+                                    <h3 class="font-medium">Project Progress</h3>
+                                    <div class="flex items-center mt-1">
+                                        <div class="w-full max-w-xs bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mr-2">
+                                            <div class="bg-primary h-2.5 rounded-full" style="width: ${progressPercent}%"></div>
+                                        </div>
+                                        <span class="text-sm text-gray-500 dark:text-gray-400">${progressPercent}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="text-center">
+                                <div class="text-2xl font-semibold">${projectTasks.length}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">Total Tasks</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-2xl font-semibold">${tasksByStatus['to-do'].length}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">To Do</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-2xl font-semibold">${tasksByStatus['in-progress'].length + tasksByStatus['review'].length}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">In Progress</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-2xl font-semibold">${tasksByStatus['completed'].length}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">Completed</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <!-- To Do Column -->
+                    <div class="task-column" data-status="to-do">
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 h-full flex flex-col">
+                            <div class="p-3 border-b dark:border-gray-700 flex items-center justify-between">
+                                <h3 class="font-medium">To Do</h3>
+                                <span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full px-2 py-1">${tasksByStatus['to-do'].length}</span>
+                            </div>
+                            <div class="p-2 flex-1 overflow-y-auto custom-scrollbar" style="max-height: calc(100vh - 20rem);">
+                                ${tasksByStatus['to-do'].map(task => generateTaskCard(task)).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- In Progress Column -->
+                    <div class="task-column" data-status="in-progress">
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 h-full flex flex-col">
+                            <div class="p-3 border-b dark:border-gray-700 flex items-center justify-between">
+                                <h3 class="font-medium">In Progress</h3>
+                                <span class="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs rounded-full px-2 py-1">${tasksByStatus['in-progress'].length}</span>
+                            </div>
+                            <div class="p-2 flex-1 overflow-y-auto custom-scrollbar" style="max-height: calc(100vh - 20rem);">
+                                ${tasksByStatus['in-progress'].map(task => generateTaskCard(task)).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Review Column -->
+                    <div class="task-column" data-status="review">
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 h-full flex flex-col">
+                            <div class="p-3 border-b dark:border-gray-700 flex items-center justify-between">
+                                <h3 class="font-medium">Review</h3>
+                                <span class="bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 text-xs rounded-full px-2 py-1">${tasksByStatus['review'].length}</span>
+                            </div>
+                            <div class="p-2 flex-1 overflow-y-auto custom-scrollbar" style="max-height: calc(100vh - 20rem);">
+                                ${tasksByStatus['review'].map(task => generateTaskCard(task)).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Completed Column -->
+                    <div class="task-column" data-status="completed">
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 h-full flex flex-col">
+                            <div class="p-3 border-b dark:border-gray-700 flex items-center justify-between">
+                                <h3 class="font-medium">Completed</h3>
+                                <span class="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 text-xs rounded-full px-2 py-1">${tasksByStatus['completed'].length}</span>
+                            </div>
+                            <div class="p-2 flex-1 overflow-y-auto custom-scrollbar" style="max-height: calc(100vh - 20rem);">
+                                ${tasksByStatus['completed'].map(task => generateTaskCard(task)).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listeners to task cards
+            const taskCards = mainContent.querySelectorAll('.task-card');
+            taskCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    const taskId = parseInt(card.getAttribute('data-task-id'));
+                    const task = mockTasks.find(t => t.id === taskId);
+                    if (task) {
+                        openTaskDetailModal(task);
+                    }
+                });
+                
+                // Drag and drop functionality
+                card.setAttribute('draggable', 'true');
+                card.addEventListener('dragstart', () => {
+                    card.classList.add('dragging');
+                });
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('dragging');
+                    
+                    // Update task status based on column
+                    const taskId = parseInt(card.getAttribute('data-task-id'));
+                    const task = mockTasks.find(t => t.id === taskId);
+                    const parentColumn = card.closest('.task-column');
+                    if (task && parentColumn) {
+                        const newStatus = parentColumn.getAttribute('data-status');
+                        task.status = newStatus;
+                    }
+                });
+            });
+            
+            // Add drag and drop to columns
+            const taskColumns = mainContent.querySelectorAll('.task-column');
+            taskColumns.forEach(column => {
+                column.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    column.classList.add('drag-over');
+                    const draggingCard = document.querySelector('.dragging');
+                    if (draggingCard) {
+                        const container = column.querySelector('.custom-scrollbar');
+                        container.appendChild(draggingCard);
+                    }
+                });
+                
+                column.addEventListener('dragleave', () => {
+                    column.classList.remove('drag-over');
+                });
+                
+                column.addEventListener('drop', () => {
+                    column.classList.remove('drag-over');
+                });
+            });
+            
+            // Back to projects button
+            const backToProjectsBtn = document.getElementById('back-to-projects');
+            backToProjectsBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                setActiveNavItem(navProjects);
+                renderProjects();
+            });
+            
+            // New task button
+            const newTaskBtn = document.getElementById('new-task-btn');
+            newTaskBtn.addEventListener('click', () => {
+                createTaskModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+                
+                // Populate projects select and select current project
+                taskProject.innerHTML = '';
+                mockProjects.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.id;
+                    option.textContent = p.name;
+                    option.selected = p.id === project.id;
+                    taskProject.appendChild(option);
+                });
+                
+                // Populate assignees select
+                taskAssignee.innerHTML = '';
+                mockUsers.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = user.name;
+                    option.selected = user.id === currentUserId;
+                    taskAssignee.appendChild(option);
+                });
+            });
+        }
+
+        // Generate task card HTML
+        function generateTaskCard(task) {
+            const assignee = getUserById(task.assigneeId);
+            
+            return `
+                <div class="task-card p-3 bg-white dark:bg-gray-800 rounded-md border dark:border-gray-700 shadow-sm mb-2 cursor-pointer hover:shadow-md transition-shadow" data-task-id="${task.id}">
+                    <div class="flex items-start justify-between">
+                        <h4 class="font-medium text-sm">${task.name}</h4>
+                        <span class="inline-block w-2 h-2 rounded-full ${getPriorityColor(task.priority)}"></span>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">${task.description}</p>
+                    
+                    <div class="mt-3 flex items-center justify-between">
+                        <div class="flex items-center">
+                            <img src="${assignee.avatar}" alt="${assignee.name}" class="w-6 h-6 rounded-full">
+                            <div class="ml-1 text-xs text-gray-500 dark:text-gray-400">${task.comments.length > 0 ? `<i class="fas fa-comment-alt mr-1"></i>${task.comments.length}` : ''}</div>
+                        </div>
+                        <div class="text-xs ${isOverdue(task.dueDate) ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}">${formatDate(task.dueDate)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Open task detail modal
+        function openTaskDetailModal(task) {
+            taskDetailModal.setAttribute('data-task-id', task.id);
+            
+            const project = getProjectById(task.projectId);
+            const assignee = getUserById(task.assigneeId);
+            const creator = getUserById(task.createdBy);
+            
+            // Set task details
+            document.getElementById('task-detail-title').textContent = task.name;
+            document.getElementById('task-detail-description').textContent = task.description;
+            document.getElementById('task-detail-status').value = task.status;
+            document.getElementById('task-detail-assignee-avatar').src = assignee.avatar;
+            document.getElementById('task-detail-due-date').value = task.dueDate;
+            document.getElementById('task-detail-priority').value = task.priority;
+            document.getElementById('task-detail-project').textContent = project.name;
+            document.getElementById('task-detail-creator-avatar').src = creator.avatar;
+            document.getElementById('task-detail-creator').textContent = creator.name;
+            document.getElementById('task-detail-created-at').textContent = formatDate(task.createdAt);
+            
+            // Populate assignee select
+            taskDetailAssignee.innerHTML = '';
+            mockUsers.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = user.name;
+                option.selected = user.id === task.assigneeId;
+                taskDetailAssignee.appendChild(option);
+            });
+            
+            // Render task attachments
+            renderTaskAttachments(task);
+            
+            // Render task comments
+            renderTaskComments(task);
+            
+            // Event listeners for task detail fields
+            document.getElementById('task-detail-status').addEventListener('change', (e) => {
+                task.status = e.target.value;
+                
+                // If we're in project board view, refresh it
+                if (mainContent.getAttribute('data-view') === 'project-board') {
+                    const projectId = parseInt(mainContent.getAttribute('data-project-id'));
+                    const project = mockProjects.find(p => p.id === projectId);
+                    if (project) {
+                        renderProjectBoard(project);
+                    }
+                }
+            });
+            
+            document.getElementById('task-detail-assignee').addEventListener('change', (e) => {
+                task.assigneeId = parseInt(e.target.value);
+                const newAssignee = getUserById(task.assigneeId);
+                document.getElementById('task-detail-assignee-avatar').src = newAssignee.avatar;
+            });
+            
+            document.getElementById('task-detail-due-date').addEventListener('change', (e) => {
+                task.dueDate = e.target.value;
+            });
+            
+            document.getElementById('task-detail-priority').addEventListener('change', (e) => {
+                task.priority = e.target.value;
+            });
+            
+            taskDetailModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Render task attachments
+        function renderTaskAttachments(task) {
+            const attachmentsContainer = document.getElementById('task-attachments');
+            attachmentsContainer.innerHTML = '';
+            
+            if (task.attachments.length === 0) {
+                attachmentsContainer.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No attachments</p>';
+                return;
+            }
+            
+            task.attachments.forEach(attachment => {
+                const attachmentEl = document.createElement('div');
+                attachmentEl.className = 'rounded-md overflow-hidden border dark:border-gray-700';
+                
+                if (attachment.type === 'image') {
+                    attachmentEl.innerHTML = `
+                        <div class="relative group">
+                            <img src="${attachment.url}" alt="${attachment.name}" class="w-full h-24 object-cover">
+                            <div class="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
+                                <a href="${attachment.url}" target="_blank" class="text-white p-1 rounded-full bg-gray-800 hover:bg-gray-700 transition-colors">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="${attachment.url}" download="${attachment.name}" class="text-white p-1 rounded-full bg-gray-800 hover:bg-gray-700 transition-colors">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                            </div>
+                        </div>
+                        <div class="p-1 text-xs truncate">${attachment.name}</div>
+                    `;
+                } else {
+                    attachmentEl.innerHTML = `
+                        <div class="h-24 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                            <i class="fas fa-file-alt text-gray-400 text-3xl"></i>
+                        </div>
+                        <div class="p-1 text-xs truncate">${attachment.name}</div>
+                    `;
+                }
+                
+                attachmentsContainer.appendChild(attachmentEl);
+            });
+        }
+
+        // Render task comments
+        function renderTaskComments(task) {
+            const commentsContainer = document.getElementById('task-comments');
+            commentsContainer.innerHTML = '';
+            
+            if (task.comments.length === 0) {
+                commentsContainer.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No comments yet</p>';
+                return;
+            }
+            
+            task.comments.forEach(comment => {
+                const user = getUserById(comment.userId);
+                const commentEl = document.createElement('div');
+                commentEl.className = 'flex items-start';
+                commentEl.innerHTML = `
+                    <img src="${user.avatar}" alt="${user.name}" class="w-8 h-8 rounded-full mr-2">
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium text-sm">${user.name}</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">${comment.timestamp}</span>
+                        </div>
+                        <p class="text-sm mt-1">${comment.content}</p>
+                    </div>
+                `;
+                commentsContainer.appendChild(commentEl);
+            });
+        }
+
+        // Render my tasks view
+        function renderMyTasks() {
+            pageTitle.textContent = 'My Tasks';
+            mainContent.setAttribute('data-view', 'my-tasks');
+            
+            // Get tasks assigned to current user
+            const myTasks = mockTasks.filter(task => task.assigneeId === currentUserId);
+            
+            // Group tasks by status
+            const tasksByStatus = {
+                'to-do': myTasks.filter(task => task.status === 'to-do'),
+                'in-progress': myTasks.filter(task => task.status === 'in-progress'),
+                'review': myTasks.filter(task => task.status === 'review'),
+                'completed': myTasks.filter(task => task.status === 'completed')
+            };
+            
+            mainContent.innerHTML = `
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-semibold">My Tasks</h2>
+                    <button id="new-task-btn" class="flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>
+                        New Task
+                    </button>
+                </div>
+                
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 overflow-hidden mb-6">
+                    <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center">
+                        <button class="task-filter mr-4 px-2 py-1 rounded-md bg-primary bg-opacity-10 text-primary" data-filter="all">All</button>
+                        <button class="task-filter mr-4 px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-filter="to-do">To Do</button>
+                        <button class="task-filter mr-4 px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-filter="in-progress">In Progress</button>
+                        <button class="task-filter mr-4 px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-filter="review">Review</button>
+                        <button class="task-filter px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-filter="completed">Completed</button>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y dark:divide-gray-700">
+                            <thead class="bg-gray-50 dark:bg-gray-800">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Task</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Project</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Priority</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white dark:bg-gray-800 divide-y dark:divide-gray-700" id="tasks-table-body">
+                                ${generateTasksTableRows(myTasks)}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Upcoming Tasks -->
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 overflow-hidden">
+                        <div class="px-4 py-3 border-b dark:border-gray-700">
+                            <h3 class="font-medium">Upcoming Deadlines</h3>
+                        </div>
+                        <div class="divide-y dark:divide-gray-700">
+                            ${myTasks
+                                .filter(task => task.status !== 'completed' && task.dueDate)
+                                .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+                                .slice(0, 5)
+                                .map(task => {
+                                    const project = getProjectById(task.projectId);
+                                    return `
+                                        <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors cursor-pointer task-item" data-task-id="${task.id}">
+                                            <div class="flex items-start">
+                                                <div class="w-10 text-center">
+                                                    <div class="text-xs font-semibold text-gray-500 dark:text-gray-400">${new Date(task.dueDate).toLocaleString('default', { month: 'short' })}</div>
+                                                    <div class="text-lg font-bold ${isOverdue(task.dueDate) ? 'text-red-500' : ''}">${new Date(task.dueDate).getDate()}</div>
+                                                </div>
+                                                <div class="ml-3 flex-1">
+                                                    <div class="flex items-center justify-between">
+                                                        <h4 class="font-medium">${task.name}</h4>
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(task.status)} bg-opacity-10 text-${getStatusColor(task.status).split('-')[1]}-800 dark:text-${getStatusColor(task.status).split('-')[1]}-300">
+                                                            ${task.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                                        </span>
+                                                    </div>
+                                                    <p class="text-sm text-gray-500 dark:text-gray-400">${project.name}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                        </div>
+                    </div>
+                    
+                    <!-- Task Statistics -->
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 overflow-hidden">
+                        <div class="px-4 py-3 border-b dark:border-gray-700">
+                            <h3 class="font-medium">Task Statistics</h3>
+                        </div>
+                        <div class="p-4">
+                            <div class="grid grid-cols-2 gap-4 mb-6">
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold">${tasksByStatus['to-do'].length + tasksByStatus['in-progress'].length + tasksByStatus['review'].length}</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Active Tasks</div>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold">${tasksByStatus['completed'].length}</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Completed Tasks</div>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold">${myTasks.filter(task => isOverdue(task.dueDate) && task.status !== 'completed').length}</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Overdue Tasks</div>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold">${myTasks.filter(task => task.priority === 'high' && task.status !== 'completed').length}</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">High Priority</div>
+                                </div>
+                            </div>
+                            
+                            <h4 class="font-medium mb-2">Tasks by Status</h4>
+                            <div class="space-y-2">
+                                <div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span>To Do</span>
+                                        <span>${tasksByStatus['to-do'].length}</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                                        <div class="bg-gray-500 h-2 rounded-full" style="width: ${myTasks.length > 0 ? (tasksByStatus['to-do'].length / myTasks.length) * 100 : 0}%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span>In Progress</span>
+                                        <span>${tasksByStatus['in-progress'].length}</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                                        <div class="bg-blue-500 h-2 rounded-full" style="width: ${myTasks.length > 0 ? (tasksByStatus['in-progress'].length / myTasks.length) * 100 : 0}%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span>Review</span>
+                                        <span>${tasksByStatus['review'].length}</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                                        <div class="bg-yellow-500 h-2 rounded-full" style="width: ${myTasks.length > 0 ? (tasksByStatus['review'].length / myTasks.length) * 100 : 0}%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span>Completed</span>
+                                        <span>${tasksByStatus['completed'].length}</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                                        <div class="bg-green-500 h-2 rounded-full" style="width: ${myTasks.length > 0 ? (tasksByStatus['completed'].length / myTasks.length) * 100 : 0}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listeners to task items
+            const taskItems = mainContent.querySelectorAll('.task-item, #tasks-table-body tr');
+            taskItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const taskId = parseInt(item.getAttribute('data-task-id'));
+                    const task = mockTasks.find(t => t.id === taskId);
+                    if (task) {
+                        openTaskDetailModal(task);
+                    }
+                });
+            });
+            
+            // Add event listeners to task filters
+            const taskFilters = mainContent.querySelectorAll('.task-filter');
+            taskFilters.forEach(filter => {
+                filter.addEventListener('click', () => {
+                    // Update active filter
+                    taskFilters.forEach(f => {
+                        f.classList.remove('bg-primary', 'bg-opacity-10', 'text-primary');
+                        f.classList.add('hover:bg-gray-100', 'dark:hover:bg-gray-700');
+                    });
+                    filter.classList.add('bg-primary', 'bg-opacity-10', 'text-primary');
+                    filter.classList.remove('hover:bg-gray-100', 'dark:hover:bg-gray-700');
+                    
+                    // Filter tasks
+                    const filterValue = filter.getAttribute('data-filter');
+                    const tasksTableBody = document.getElementById('tasks-table-body');
+                    
+                    if (filterValue === 'all') {
+                        tasksTableBody.innerHTML = generateTasksTableRows(myTasks);
+                    } else {
+                        tasksTableBody.innerHTML = generateTasksTableRows(myTasks.filter(task => task.status === filterValue));
+                    }
+                    
+                    // Re-add event listeners to filtered tasks
+                    const filteredTaskRows = tasksTableBody.querySelectorAll('tr');
+                    filteredTaskRows.forEach(row => {
+                        row.addEventListener('click', () => {
+                            const taskId = parseInt(row.getAttribute('data-task-id'));
+                            const task = mockTasks.find(t => t.id === taskId);
+                            if (task) {
+                                openTaskDetailModal(task);
+                            }
+                        });
+                    });
+                });
+            });
+            
+            // New task button
+            const newTaskBtn = document.getElementById('new-task-btn');
+            newTaskBtn.addEventListener('click', () => {
+                createTaskModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+                
+                // Populate projects select
+                taskProject.innerHTML = '';
+                mockProjects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.id;
+                    option.textContent = project.name;
+                    taskProject.appendChild(option);
+                });
+                
+                // Populate assignees select and select current user
+                taskAssignee.innerHTML = '';
+                mockUsers.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = user.name;
+                    option.selected = user.id === currentUserId;
+                    taskAssignee.appendChild(option);
+                });
+            });
+        }
+
+        // Generate tasks table rows
+        function generateTasksTableRows(tasks) {
+            if (tasks.length === 0) {
+                return `
+                    <tr>
+                        <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No tasks found</td>
+                    </tr>
+                `;
+            }
+            
+            return tasks.map(task => {
+                const project = getProjectById(task.projectId);
+                return `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors cursor-pointer" data-task-id="${task.id}">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium">${task.name}</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400 truncate" style="max-width: 250px;">${task.description}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm">${project.name}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(task.status)} bg-opacity-10 text-${getStatusColor(task.status).split('-')[1]}-800 dark:text-${getStatusColor(task.status).split('-')[1]}-300">
+                                ${task.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(task.priority)} bg-opacity-10 text-${getPriorityColor(task.priority).split('-')[1]}-800 dark:text-${getPriorityColor(task.priority).split('-')[1]}-300">
+                                ${task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm ${isOverdue(task.dueDate) ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}">
+                            ${formatDate(task.dueDate)}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Render team view
+        function renderTeam() {
+            pageTitle.textContent = 'Team';
+            mainContent.setAttribute('data-view', 'team');
+            
+            mainContent.innerHTML = `
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-semibold">Team Members</h2>
+                    <button class="flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">
+                        <i class="fas fa-user-plus mr-2"></i>
+                        Invite Member
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${mockUsers.map(user => {
+                        const userTasks = mockTasks.filter(task => task.assigneeId === user.id);
+                        const completedTasks = userTasks.filter(task => task.status === 'completed').length;
+                        const tasksInProgress = userTasks.filter(task => task.status === 'in-progress' || task.status === 'review').length;
+                        
+                        return `
+                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 overflow-hidden">
+                                <div class="p-4 flex items-center">
+                                    <img src="${user.avatar}" alt="${user.name}" class="w-16 h-16 rounded-full">
+                                    <div class="ml-4">
+                                        <h3 class="font-semibold text-lg">${user.name}</h3>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">${user.role}</p>
+                                    </div>
+                                </div>
+                                <div class="px-4 pb-4">
+                                    <div class="grid grid-cols-2 gap-4 text-center">
+                                        <div>
+                                            <div class="text-xl font-semibold">${userTasks.length}</div>
+                                            <div class="text-sm text-gray-500 dark:text-gray-400">Total Tasks</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-xl font-semibold">${completedTasks}</div>
+                                            <div class="text-sm text-gray-500 dark:text-gray-400">Completed</div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
+                                            <span>Tasks Progress</span>
+                                            <span>${userTasks.length > 0 ? Math.round((completedTasks / userTasks.length) * 100) : 0}%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                            <div class="bg-primary h-2 rounded-full" style="width: ${userTasks.length > 0 ? (completedTasks / userTasks.length) * 100 : 0}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="px-4 py-3 bg-gray-50 dark:bg-gray-750 border-t dark:border-gray-700">
+                                    <div class="flex justify-between">
+                                        <button class="text-primary hover:underline">View Profile</button>
+                                        <div class="text-sm text-gray-500 dark:text-gray-400">${tasksInProgress} tasks in progress</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            
+            // Set current user's avatar
+            const currentUser = getUserById(currentUserId);
+            sidebarAvatar.src = currentUser.avatar;
+            navAvatar.src = currentUser.avatar;
+            currentUserName.textContent = currentUser.name;
+            
+            // Update sidebar lists
+            updateRecentProjects();
+            updateTeamMembersList();
+            
+            // Render initial view
+            renderDashboard();
+        });
+    </script>
+</body>
+</html>
